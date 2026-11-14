@@ -4,9 +4,12 @@
 
 {% block page %}
 <div class="liftoff">
-  <h1 class="site-title">Semantically Ordered Playlist</h1>
+  <header class="site-title">
+    <h1>Semantically Ordered Playlist</h1>
+    <button type="button" class="leave-liftoff" data-leave="{{ leave_url }}" data-landing="{% url 'landing' %}" aria-label="Return to the landing page">X</button>
+  </header>
   <div class="liftoff-body">
-  <section class="stage">
+  <section class="stage" id="player-stage">
     {% if embed_url %}
     <div class="player">
       <iframe
@@ -22,16 +25,26 @@
     {% endif %}
   </section>
   <aside class="playlist" data-page="{{ page }}" data-page-size="{{ page_size }}">
+    <div class="search-row">
+    {% if embed_url %}
+    <button type="button" class="player-toggle" aria-expanded="false" aria-controls="player-stage" aria-label="Show the video player">
+      <span class="player-toggle-icon" aria-hidden="true">→</span>
+    </button>
+    {% endif %}
     <form class="song-search" role="search" autocomplete="off">
       <label class="search-label" for="song-search">Search songs</label>
       <input id="song-search" class="search-input" type="search" placeholder="Search songs" autocomplete="off" aria-autocomplete="list" aria-controls="song-search-results" aria-expanded="false">
       <ul class="search-results" id="song-search-results" role="listbox" hidden></ul>
     </form>
+    </div>
     {% include "pages/_pager.html" %}
     <ul class="song-list">
       {% for video in videos %}
       <li class="song{% if video.id == playing_id %} is-playing{% endif %}{% if video.index < page_start or video.index >= page_end %} is-offpage{% endif %}" data-video-id="{{ video.id }}">
-        <img class="thumb" src="{{ video.thumbnail_url }}" alt="" width="72" height="72">
+        <span class="thumb-frame">
+          <img class="thumb" src="{{ video.thumbnail_url }}" alt="" width="72" height="72">
+          <span class="play-mark" aria-hidden="true"></span>
+        </span>
         <div class="song-name-wrap">
           <a class="song-name" href="{{ video.embed_url }}" target="player" data-index="{{ video.index }}">
             <span class="song-name-track">
@@ -46,6 +59,7 @@
     {% include "pages/_pager.html" %}
   </aside>
   </div>
+  <footer class="site-footer">© 2026 All rights reserved.</footer>
 </div>
 <script>
   const songList = document.querySelector(".song-list");
@@ -155,6 +169,7 @@
         button.disabled = !enabled;
         button.classList.toggle("is-disabled", !enabled);
       });
+      renderPageNumbers(page, pageCount);
       const playing = document.querySelector(".song.is-playing:not(.is-offpage)");
       if (playing) tuneSlide(playing);
       const url = new URL(window.location.href);
@@ -163,7 +178,67 @@
       if (url.href !== window.location.href) history.replaceState(null, "", url);
     }
 
+    function renderPageNumbers(current, pageCount) {
+      const numbers = [];
+      [1, current - 1, current, current + 1, pageCount].forEach((number) => {
+        if (number >= 1 && number <= pageCount && !numbers.includes(number)) numbers.push(number);
+      });
+      numbers.sort((a, b) => a - b);
+      document.querySelectorAll(".pager-pages").forEach((group) => {
+        const track = document.createElement("div");
+        track.className = "pager-pages-track";
+        numbers.forEach((number, index) => {
+          if (index > 0 && number - numbers[index - 1] > 1) {
+            const mark = document.createElement("span");
+            mark.className = "pager-ellipsis";
+            mark.textContent = "...";
+            mark.setAttribute("aria-hidden", "true");
+            track.append(mark);
+          }
+          const pageButton = document.createElement("button");
+          pageButton.type = "button";
+          pageButton.className = "pager-page";
+          pageButton.dataset.pageNumber = String(number);
+          pageButton.textContent = String(number);
+          pageButton.setAttribute("aria-label", `Page ${number}`);
+          if (number === current) {
+            pageButton.classList.add("is-current");
+            pageButton.setAttribute("aria-current", "page");
+          }
+          track.append(pageButton);
+        });
+        group.replaceChildren(track);
+      });
+      centerPageNumbers();
+    }
+
+    function centerPageNumbers() {
+      document.querySelectorAll(".pager-pages").forEach((group) => {
+        const track = group.querySelector(".pager-pages-track");
+        const currentButton = track && track.querySelector(".is-current");
+        if (!currentButton) return;
+        const available = group.clientWidth;
+        const naturalWidth = track.scrollWidth;
+        track.style.transformOrigin = "left center";
+        if (naturalWidth > available && available > 0) {
+          track.style.transform = `scale(${available / naturalWidth})`;
+          return;
+        }
+        const currentCenter = currentButton.offsetLeft + currentButton.offsetWidth / 2;
+        track.style.transform = `translateX(${available / 2 - currentCenter}px)`;
+      });
+    }
+
     playlist.addEventListener("click", (event) => {
+      const pageButton = event.target.closest(".pager-page");
+      if (pageButton) {
+        const nextPage = Number(pageButton.dataset.pageNumber);
+        if (nextPage && nextPage !== page) {
+          page = nextPage;
+          renderPage();
+        }
+        return;
+      }
       const button = event.target.closest(".pager-button");
       if (!button || button.disabled) return;
       page += Number(button.dataset.pageStep);
@@ -283,6 +358,31 @@
         if (!searchForm.contains(event.target)) hideResults();
       });
     }
+
+    renderPage();
+    if (window.ResizeObserver) {
+      new ResizeObserver(() => centerPageNumbers()).observe(playlist);
+    }
+  }
+
+  const leaveLink = document.querySelector(".leave-liftoff");
+  if (leaveLink) {
+    leaveLink.addEventListener("click", () => {
+      fetch(leaveLink.dataset.leave, { method: "POST", cache: "no-store", keepalive: true });
+      window.location.replace(leaveLink.dataset.landing || "/");
+    });
+  }
+
+  const playerToggle = document.querySelector(".player-toggle");
+  const liftoffBody = document.querySelector(".liftoff-body");
+  if (playerToggle && liftoffBody) {
+    const icon = playerToggle.querySelector(".player-toggle-icon");
+    playerToggle.addEventListener("click", () => {
+      const open = liftoffBody.classList.toggle("is-player-open");
+      playerToggle.setAttribute("aria-expanded", open ? "true" : "false");
+      playerToggle.setAttribute("aria-label", open ? "Hide the video player" : "Show the video player");
+      if (icon) icon.textContent = open ? "←" : "→";
+    });
   }
 </script>
 {% endblock %}

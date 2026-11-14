@@ -98,48 +98,135 @@ body.liftoff-page {
   position: sticky;
   top: 0;
   z-index: 4;
+  display: grid;
+  grid-template-columns: 2.75rem minmax(0, 1fr) 2.75rem;
+  align-items: center;
   margin: 0;
   padding: 1.15rem 1.5rem 0.9rem;
-  text-align: center;
   background: #fff;
   border-bottom: 1px solid #ddd;
 }
 
+.site-title h1 {
+  grid-column: 2;
+  margin: 0;
+  text-align: center;
+}
+
+.leave-liftoff {
+  grid-column: 3;
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  font-size: 1.75rem;
+  line-height: 1;
+  color: inherit;
+  border: 1px solid #222;
+  border-radius: 4px;
+  background: #fff;
+}
+
+.leave-liftoff:hover {
+  background: #f3f3f3;
+}
+
+.site-footer {
+  width: 100%;
+  margin: 0;
+  padding: 0.85rem 1.5rem;
+  border-top: 1px solid #ddd;
+  background: #fff;
+  text-align: center;
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
 .liftoff-body {
+  position: relative;
   display: flex;
   flex: 1;
+  justify-content: center;
   align-items: stretch;
   width: 100%;
   min-height: 0;
-}
-
-.stage,
-.playlist {
-  width: 50%;
-  min-width: 0;
+  overflow: hidden;
 }
 
 .stage {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
   display: flex;
   flex-direction: column;
   justify-content: center;
+  width: 50%;
   padding: 2rem 2.5rem;
+  background: #fff;
+  transform: translateX(-100%);
+  transition: transform 0.45s ease;
+}
+
+.liftoff-body.is-player-open .stage {
+  transform: translateX(0);
 }
 
 .playlist {
   display: flex;
+  flex: 0 0 auto;
   flex-direction: column;
   align-items: flex-start;
+  width: min(720px, calc(100% - 3rem));
+  min-width: 0;
+  margin: 0 auto 0 max(1.5rem, calc(50% - 360px));
   padding: 1.25rem 1.5rem;
-  border-left: 1px solid #ddd;
+  border-left: 0;
   text-align: left;
+  transition: width 0.45s ease, margin-left 0.45s ease;
+}
+
+.liftoff-body.is-player-open .playlist {
+  width: 50%;
+  margin-left: 50%;
+  margin-right: 0;
+  border-left: 1px solid #ddd;
+}
+
+.search-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+  align-self: stretch;
+  width: 100%;
+  margin: 0 0 0.75rem;
+}
+
+.player-toggle {
+  flex: 0 0 auto;
+  width: 2.5rem;
+  padding: 0;
+  font: inherit;
+  font-size: 1.35rem;
+  line-height: 1;
+  border: 1px solid #222;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.player-toggle:hover {
+  background: #f3f3f3;
 }
 
 .song-search {
   position: relative;
-  align-self: stretch;
-  width: 100%;
-  margin: 0 0 0.75rem;
+  flex: 1;
+  min-width: 0;
+  margin: 0;
 }
 
 .search-label {
@@ -210,7 +297,65 @@ body.liftoff-page {
 
 .pager {
   display: flex;
-  gap: 0.5rem;
+  align-items: center;
+  align-self: stretch;
+  width: 100%;
+  gap: 0.75rem;
+}
+
+.pager-pages {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 2.4rem;
+  overflow: hidden;
+}
+
+.pager-pages-track {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  gap: 0.35rem;
+  width: max-content;
+}
+
+.pager-page {
+  flex: 0 0 auto;
+  min-width: 2.25rem;
+  height: 2.25rem;
+  padding: 0 0.45rem;
+  font: inherit;
+  font-size: 1rem;
+  color: inherit;
+  border: 1px solid #222;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.pager-page:hover {
+  background: #f3f3f3;
+}
+
+.pager-page.is-current {
+  background: #222;
+  color: #fff;
+  cursor: default;
+}
+
+.pager-page.is-current:hover {
+  background: #222;
+}
+
+.pager-ellipsis {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  height: 2.25rem;
+  font-size: 1rem;
 }
 
 .pager-button {
@@ -260,12 +405,54 @@ button.pager-button:disabled:hover {
   margin: 0 0 0.7rem;
 }
 
-.thumb {
+.thumb-frame {
+  position: relative;
+  flex: 0 0 auto;
   width: 72px;
   height: 72px;
-  flex: 0 0 auto;
+}
+
+.thumb {
+  display: block;
+  width: 72px;
+  height: 72px;
   object-fit: cover;
   background: #eee;
+}
+
+.play-mark {
+  display: none;
+}
+
+.song.is-playing .play-mark {
+  display: block;
+  position: absolute;
+  inset: 0;
+}
+
+.song.is-playing .play-mark::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 38px;
+  height: 38px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.song.is-playing .play-mark::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 16px;
+  height: 18px;
+  background: #ff2d55;
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+  transform: translate(-35%, -50%);
+  animation: play-resonate 1.6s ease-in-out infinite;
 }
 
 .song-name-wrap {
@@ -291,8 +478,8 @@ a.song-name:visited {
   display: none;
 }
 
-.song.is-playing .song-name-wrap {
-  padding: 0.28rem 0.55rem;
+.song.is-playing {
+  padding: 0.35rem 0.55rem;
   border: 3px solid transparent;
   border-radius: 8px;
   background:
@@ -350,9 +537,28 @@ a.song-name:visited {
   66% { box-shadow: 0 0 8px 1px #7a4dff, 0 0 16px 4px #ff33aa; }
 }
 
+@keyframes play-resonate {
+  0%, 100% {
+    background-color: #ff3355;
+    filter: drop-shadow(0 0 3px #ff3355) drop-shadow(0 0 7px #ffe600);
+    transform: translate(-35%, -50%) scale(1);
+  }
+  33% {
+    background-color: #3ddc4e;
+    filter: drop-shadow(0 0 5px #3ddc4e) drop-shadow(0 0 10px #2f9bff);
+    transform: translate(-35%, -50%) scale(1.22);
+  }
+  66% {
+    background-color: #7a4dff;
+    filter: drop-shadow(0 0 5px #7a4dff) drop-shadow(0 0 10px #ff33aa);
+    transform: translate(-35%, -50%) scale(1);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .song.is-playing .song-name-wrap,
-  .song.is-playing .song-name-track {
+  .song.is-playing,
+  .song.is-playing .song-name-track,
+  .song.is-playing .play-mark::after {
     animation: none;
   }
 
@@ -364,25 +570,19 @@ a.song-name:visited {
     display: none;
   }
 
-  .song.is-playing .song-name-wrap {
+  .song.is-playing {
     background-position: 0 0, 40% 0;
     box-shadow: 0 0 8px 1px #ff3355, 0 0 14px 3px #2f9bff;
-  }
-}
-
-@media (max-width: 800px) {
-  .liftoff-body {
-    flex-direction: column;
   }
 
   .stage,
   .playlist {
-    width: 100%;
-    height: auto;
+    transition: none;
   }
+}
 
-  .playlist {
-    border-left: 0;
-    border-top: 1px solid #ddd;
+@media (max-width: 800px) {
+  .stage {
+    padding: 1rem;
   }
 }
