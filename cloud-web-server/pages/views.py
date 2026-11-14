@@ -11,6 +11,7 @@ from .playlists import (
     list_embed_is_playable,
     playlist_id_from_url,
     public_playlist_videos,
+    youtube_playlist_name,
 )
 from .spotify import (
     forget_spotify_playlist,
@@ -18,6 +19,7 @@ from .spotify import (
     public_spotify_tracks,
     spotify_embed_url,
     spotify_playlist_id,
+    spotify_playlist_name,
 )
 
 INVALID_URL_MESSAGE = "The URL is invalid."
@@ -100,6 +102,10 @@ def liftoff(request):
             "player_title": first.title if first else "",
             "playing_id": first.id if first else "",
             "leave_url": _leave_url(playlist_url),
+            "playlist_service": "youtube",
+            "playlist_id": playlist_id,
+            "playlist_url": playlist_url,
+            "playlist_name": youtube_playlist_name(playlist_url),
         },
     )
 
@@ -138,6 +144,9 @@ def liftoff2(request):
             "player_title": first.title if first else "",
             "playing_id": first.id if first else "",
             "leave_url": _leave_url(playlist_url),
+            "playlist_service": "spotify",
+            "playlist_url": playlist_url,
+            "playlist_name": spotify_playlist_name(playlist_url) if playlist_id else "",
         },
     )
 

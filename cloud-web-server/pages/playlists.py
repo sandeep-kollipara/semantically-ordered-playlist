@@ -5,6 +5,7 @@ import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
+from html import unescape
 from urllib.parse import parse_qs, urlencode, urlparse
 from xml.etree import ElementTree
 
@@ -22,8 +23,14 @@ _CACHE_TTL = 300
 _MAX_PLAYLIST_BATCHES = 50
 _INNERTUBE_KEY = re.compile(r'"INNERTUBE_API_KEY":"([^"]+)"')
 _INNERTUBE_VERSION = re.compile(r'"INNERTUBE_CLIENT_VERSION":"([^"]+)"')
+_PLAYLIST_TITLE = re.compile(
+    r'"playlistMetadataRenderer":\{"title":"((?:\\.|[^"\\])*)"'
+)
+_PAGE_TITLE = re.compile(r'"pageTitle":"((?:\\.|[^"\\])*)"')
+_DOCUMENT_TITLE = re.compile(r"<title>(.*?)</title>", re.IGNORECASE | re.DOTALL)
 _cache = {}
 _embed_mode_cache = {}
+_title_cache = {}
 _cache_lock = threading.Lock()
 
 
@@ -36,6 +43,21 @@ class PlaylistVideo:
 
 def playlist_id_from_url(raw_url):
     return _playlist_id(raw_url) or ""
+
+
+def youtube_playlist_name(raw_url):
+    """Return the playlist title, or an empty string when it cannot be read."""
+    playlist_id = _playlist_id(raw_url)
+    if playlist_id is None:
+        return ""
+    cached = _cached_title(playlist_id)
+    if cached:
+        return cached
+    html = _fetch_text(_playlist_request(playlist_id), limit=1_500_000)
+    name = _clean_playlist_name(_title_from_html(html or ""))
+    if name:
+        _store_title(playlist_id, name)
+    return name
 
 
 def is_public_youtube_playlist(raw_url):
@@ -137,6 +159,7 @@ def _videos_from_playlist_page(playlist_id):
     html = _fetch_text(_playlist_request(playlist_id), limit=8_000_000)
     if html is None:
         return None
+    _remember_title(playlist_id, _title_from_html(html))
     data = _initial_data(html)
     if data is None:
         return None
@@ -170,11 +193,14 @@ def _videos_from_watch(playlist_id, video_id):
     if data is None:
         return None
     try:
-        contents = data["contents"]["twoColumnWatchNextResults"]["playlist"]["playlist"][
-            "contents"
-        ]
+        playlist = data["contents"]["twoColumnWatchNextResults"]["playlist"]["playlist"]
+        contents = playlist["contents"]
     except (KeyError, TypeError):
         return None
+    _remember_title(
+        playlist_id,
+        _title_text(playlist.get("title")) or _title_from_html(html),
+    )
     videos = []
     seen = set()
     for item in contents:
@@ -210,6 +236,7 @@ def _videos_from_feed(playlist_id):
         root = ElementTree.fromstring(body)
     except ElementTree.ParseError:
         return None
+    _remember_title(playlist_id, root.findtext(f"{{{_ATOM}}}title") or "")
     videos = []
     seen = set()
     for entry in root.findall(f"{{{_ATOM}}}entry"):
@@ -502,6 +529,7 @@ def forget_playlist(playlist_id):
     with _cache_lock:
         _cache.pop(playlist_id, None)
         _embed_mode_cache.pop(playlist_id, None)
+        _title_cache.pop(playlist_id, None)
 
 
 def _embed_preview_ok(url):
@@ -552,3 +580,46 @@ def _cached_videos(playlist_id):
 def _store_videos(playlist_id, videos):
     with _cache_lock:
         _cache[playlist_id] = (time.monotonic(), videos)
+
+
+def _cached_title(playlist_id):
+    now = time.monotonic()
+    with _cache_lock:
+        cached = _title_cache.get(playlist_id)
+        if cached is None or now - cached[0] >= _CACHE_TTL:
+            return ""
+        return cached[1]
+
+
+def _store_title(playlist_id, name):
+    with _cache_lock:
+        _title_cache[playlist_id] = (time.monotonic(), name)
+
+
+def _remember_title(playlist_id, name):
+    name = _clean_playlist_name(name)
+    if name:
+        _store_title(playlist_id, name)
+
+
+def _title_from_html(html):
+    for pattern in (_PLAYLIST_TITLE, _PAGE_TITLE):
+        match = pattern.search(html or "")
+        if match:
+            return _decode_json_string(match.group(1))
+    match = _DOCUMENT_TITLE.search(html or "")
+    return unescape(match.group(1)) if match else ""
+
+
+def _decode_json_string(raw):
+    try:
+        return json.loads(f'"{raw}"')
+    except json.JSONDecodeError:
+        return raw
+
+
+def _clean_playlist_name(name):
+    name = " ".join(unescape(str(name or "")).replace("\xa0", " ").split())
+    if name.lower().endswith(" - youtube"):
+        name = name[: -len(" - youtube")].strip()
+    return name

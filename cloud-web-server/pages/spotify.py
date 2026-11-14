@@ -30,6 +30,19 @@ def spotify_playlist_id(raw_url):
     return _playlist_id(raw_url) or ""
 
 
+def spotify_playlist_name(raw_url):
+    """Return the playlist title, or an empty string when it cannot be read."""
+    playlist_id = _playlist_id(raw_url)
+    if playlist_id is None:
+        return ""
+    entity = _entity(playlist_id)
+    if not entity:
+        return ""
+    return " ".join(
+        str(entity.get("name") or entity.get("title") or "").replace("\xa0", " ").split()
+    )
+
+
 def is_public_spotify_playlist(raw_url):
     """Return True when raw_url is a Spotify playlist the embed page publishes."""
     playlist_id = _playlist_id(raw_url)
