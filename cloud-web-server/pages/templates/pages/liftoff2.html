@@ -1,0 +1,202 @@
+{% extends "pages/base.html" %}
+
+{% block body_class %}liftoff-page{% endblock %}
+
+{% block page %}
+<div class="liftoff">
+  <header class="site-title">
+    <span class="brand-logo" role="img" aria-label="Spotify">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <circle cx="12" cy="12" r="12" fill="#1DB954"/>
+        <path d="M6.3 10.2 Q12 7.2 17.8 9.5" fill="none" stroke="#191414" stroke-width="1.55" stroke-linecap="round"/>
+        <path d="M7.2 13.1 Q12 10.6 16.9 12.5" fill="none" stroke="#191414" stroke-width="1.4" stroke-linecap="round"/>
+        <path d="M8.1 15.7 Q12 13.8 15.9 15.2" fill="none" stroke="#191414" stroke-width="1.25" stroke-linecap="round"/>
+      </svg>
+    </span>
+    <h1>Semantically Ordered Playlist</h1>
+    <button type="button" class="leave-liftoff" data-leave="{{ leave_url }}" data-landing="{% url 'landing' %}" aria-label="Return to the landing page">X</button>
+  </header>
+  <div class="liftoff-body">
+  <section class="stage" id="player-stage">
+    {% if embed_url %}
+    <div
+      class="player is-spotify"
+      id="spotify-embed"
+      data-playlist-id="{{ playlist_id }}"
+      data-uri="spotify:playlist:{{ playlist_id }}"
+      data-title="{{ player_title }}"
+    >
+      <iframe
+        id="spotify-player"
+        name="player"
+        src="{{ embed_url }}"
+        title="{{ player_title }}"
+        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+        allowfullscreen
+      ></iframe>
+    </div>
+    {% endif %}
+  </section>
+  <aside class="playlist" data-page="{{ page }}" data-page-size="{{ page_size }}">
+    <div class="search-row">
+    {% if embed_url %}
+    <button type="button" class="player-toggle" aria-expanded="false" aria-controls="player-stage" aria-label="Show the player" data-show-label="Show the player" data-hide-label="Hide the player">
+      <span class="player-toggle-icon" aria-hidden="true">→</span>
+    </button>
+    {% endif %}
+    <form class="song-search" role="search" autocomplete="off">
+      <label class="search-label" for="song-search">Search songs</label>
+      <input id="song-search" class="search-input" type="search" placeholder="Search songs" autocomplete="off" aria-autocomplete="list" aria-controls="song-search-results" aria-expanded="false">
+      <ul class="search-results" id="song-search-results" role="listbox" hidden></ul>
+    </form>
+    </div>
+    {% include "pages/_pager.html" %}
+    <ul class="song-list">
+      {% for video in videos %}
+      <li class="song{% if video.id == playing_id %} is-playing{% endif %}{% if video.index < page_start or video.index >= page_end %} is-offpage{% endif %}" data-video-id="{{ video.id }}">
+        <span class="thumb-frame">
+          <img class="thumb" src="{{ video.thumbnail_url }}" alt="" width="72" height="72">
+          <span class="play-mark" aria-hidden="true"></span>
+        </span>
+        <div class="song-name-wrap">
+          <a class="song-name" href="{{ video.embed_url }}" target="player" data-track-id="{{ video.id }}" data-index="{{ video.index }}">
+            <span class="song-name-track">
+              <span class="song-name-text">{{ video.title }}</span>
+              <span class="song-name-text" aria-hidden="true">{{ video.title }}</span>
+            </span>
+          </a>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% include "pages/_pager.html" %}
+  </aside>
+  </div>
+  <footer class="site-footer">© 2026 All rights reserved.</footer>
+</div>
+<script>
+  const songList = document.querySelector(".song-list");
+  const host = document.getElementById("spotify-embed");
+  const playlistId = host ? host.dataset.playlistId : "";
+  let controller = null;
+  let requestedId = "";
+
+  function songTitle(link) {
+    const text = link.querySelector(".song-name-text");
+    return (text ? text.textContent : link.textContent).trim();
+  }
+
+  function setPlaying(videoId, fromClick) {
+    if (!videoId) return;
+    if (fromClick) requestedId = videoId;
+    else if (requestedId && videoId !== requestedId) return;
+    else if (requestedId) requestedId = "";
+    let matched = false;
+    document.querySelectorAll(".song").forEach((song) => {
+      const playing = song.dataset.videoId === videoId;
+      const wasPlaying = song.classList.contains("is-playing");
+      song.classList.toggle("is-playing", playing);
+      if (playing) {
+        matched = true;
+        if (!wasPlaying) tuneSlide(song);
+      }
+    });
+    if (!matched) {
+      document.querySelectorAll(".song.is-playing").forEach((song) => {
+        song.classList.remove("is-playing");
+      });
+    }
+  }
+
+  function tuneSlide(song) {
+    const track = song.querySelector(".song-name-track");
+    if (!track) return;
+    const seconds = Math.max(8, track.scrollWidth / 45);
+    track.style.animationDuration = `${seconds}s`;
+  }
+
+  function liveFrame() {
+    return host ? host.querySelector("iframe") : null;
+  }
+
+  function trackIdFromPlayback(state) {
+    const found = [];
+    const walk = (value, depth) => {
+      if (!value || depth > 5 || found.length) return;
+      if (typeof value === "string") {
+        const match = value.match(/spotify:track:([A-Za-z0-9]{22})/);
+        if (match) found.push(match[1]);
+        return;
+      }
+      if (typeof value === "object") {
+        Object.keys(value).forEach((key) => walk(value[key], depth + 1));
+      }
+    };
+    walk(state, 0);
+    return found[0] || "";
+  }
+
+  function playSong(link) {
+    const trackId = link.dataset.trackId || "";
+    if (!trackId) return "";
+    const pageUrl = `https://open.spotify.com/playlist/${playlistId}?highlight=spotify:track:${trackId}`;
+    if (controller) {
+      if (typeof controller.loadEntity === "function") controller.loadEntity(pageUrl);
+      if (typeof controller.play === "function") controller.play();
+    } else {
+      const iframe = liveFrame();
+      if (iframe) {
+        iframe.src = link.href;
+        iframe.title = songTitle(link);
+      }
+    }
+    setPlaying(trackId, true);
+    return trackId;
+  }
+
+  if (songList && host) {
+    songList.addEventListener("click", (event) => {
+      const link = event.target.closest("a.song-name");
+      if (!link) return;
+      event.preventDefault();
+      playSong(link);
+    });
+    document.querySelectorAll(".song.is-playing").forEach(tuneSlide);
+    window.addEventListener("resize", () => {
+      document.querySelectorAll(".song.is-playing").forEach(tuneSlide);
+    });
+  }
+
+  window.onSpotifyIframeApiReady = function (IFrameAPI) {
+    const mount = document.getElementById("spotify-player");
+    if (!host || !mount || !playlistId || !IFrameAPI) return;
+    IFrameAPI.createController(mount, {
+      width: "100%",
+      height: 352,
+      uri: host.dataset.uri,
+    }, function (EmbedController) {
+      controller = EmbedController;
+      const created = liveFrame();
+      if (created) {
+        created.name = "player";
+        created.id = "spotify-player";
+        created.title = host.dataset.title || "Spotify playlist";
+      }
+      function onPlayback(state) {
+        setPlaying(trackIdFromPlayback(state), false);
+      }
+      EmbedController.addListener("playback_started", onPlayback);
+      EmbedController.addListener("playback_update", onPlayback);
+    });
+  };
+
+  if (host && playlistId) {
+    const api = document.createElement("script");
+    api.src = "https://open.spotify.com/embed/iframe-api/v1";
+    api.async = true;
+    document.head.appendChild(api);
+  }
+
+  {% include "pages/_playlist_controls.js" %}
+</script>
+{% endblock %}

@@ -3,12 +3,12 @@
 {% block content %}
 <form class="playlist-form" action="{% url 'landing' %}" method="post" novalidate>
   {% csrf_token %}
-  <label class="subtitle" for="playlist-url">Enter the YouTube playlist URL:</label>
+  <label class="subtitle" for="playlist-url">Enter the playlist URL:</label>
   {% if error %}
     <p class="form-error" role="alert">{{ error }}</p>
   {% endif %}
   <div class="url-row">
-    <input id="playlist-url" type="url" name="url" value="{{ submitted_url }}" placeholder="https://www.youtube.com/playlist?list=...">
+    <input id="playlist-url" type="url" name="url" value="{{ submitted_url }}" placeholder="YouTube or Spotify playlist URL">
     <button type="submit">Go</button>
   </div>
 </form>

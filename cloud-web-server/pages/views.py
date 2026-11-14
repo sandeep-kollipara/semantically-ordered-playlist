@@ -12,6 +12,13 @@ from .playlists import (
     playlist_id_from_url,
     public_playlist_videos,
 )
+from .spotify import (
+    forget_spotify_playlist,
+    is_public_spotify_playlist,
+    public_spotify_tracks,
+    spotify_embed_url,
+    spotify_playlist_id,
+)
 
 INVALID_URL_MESSAGE = "The URL is invalid."
 PAGE_SIZE = 7
@@ -23,7 +30,11 @@ EMBED_QUEUE_LIMIT = 200
 @csrf_exempt
 def leave(request):
     playlist_url = request.POST.get("url") or request.GET.get("url", "")
-    forget_playlist(playlist_id_from_url(playlist_url))
+    spotify_id = spotify_playlist_id(playlist_url)
+    if spotify_id:
+        forget_spotify_playlist(spotify_id)
+    else:
+        forget_playlist(playlist_id_from_url(playlist_url))
     if request.method == "POST":
         return HttpResponse(status=204)
     return redirect(reverse("landing"))
@@ -34,7 +45,10 @@ def landing(request):
     error = ""
     if request.method == "POST":
         submitted_url = request.POST.get("url", "").strip()
-        if is_public_youtube_playlist(submitted_url):
+        if spotify_playlist_id(submitted_url):
+            if is_public_spotify_playlist(submitted_url):
+                return redirect(f"{reverse('liftoff2')}?{urlencode({'url': submitted_url})}")
+        elif is_public_youtube_playlist(submitted_url):
             return redirect(f"{reverse('liftoff')}?{urlencode({'url': submitted_url})}")
         error = INVALID_URL_MESSAGE
     return render(
@@ -85,11 +99,53 @@ def liftoff(request):
             ),
             "player_title": first.title if first else "",
             "playing_id": first.id if first else "",
-            "leave_url": f"{reverse('leave')}?{urlencode({'url': playlist_url})}"
-            if playlist_url
-            else reverse("leave"),
+            "leave_url": _leave_url(playlist_url),
         },
     )
+
+
+def liftoff2(request):
+    playlist_url = request.GET.get("url", "").strip()
+    playlist_id = spotify_playlist_id(playlist_url)
+    videos = public_spotify_tracks(playlist_url) if playlist_id else ()
+    page_count = max(1, (len(videos) + PAGE_SIZE - 1) // PAGE_SIZE)
+    page = _page_number(request.GET.get("page"), page_count)
+    start = (page - 1) * PAGE_SIZE
+    first = videos[0] if videos else None
+    page_videos = [
+        {
+            "id": video.id,
+            "index": index,
+            "title": video.title,
+            "thumbnail_url": video.thumbnail_url,
+            "embed_url": spotify_embed_url(playlist_id, video.id),
+        }
+        for index, video in enumerate(videos)
+    ]
+    return render(
+        request,
+        "pages/liftoff2.html",
+        {
+            "videos": page_videos,
+            "page": page,
+            "page_size": PAGE_SIZE,
+            "page_start": start,
+            "page_end": start + PAGE_SIZE,
+            "has_previous": page > 1,
+            "has_next": page < page_count,
+            "playlist_id": playlist_id,
+            "embed_url": spotify_embed_url(playlist_id) if first else "",
+            "player_title": first.title if first else "",
+            "playing_id": first.id if first else "",
+            "leave_url": _leave_url(playlist_url),
+        },
+    )
+
+
+def _leave_url(playlist_url):
+    if not playlist_url:
+        return reverse("leave")
+    return f"{reverse('leave')}?{urlencode({'url': playlist_url})}"
 
 
 def _player_url(video_id, playlist_id, following_ids, use_list):
