@@ -1,0 +1,11 @@
+{% extends "pages/base.html" %}
+
+{% block content %}
+<form class="playlist-form" action="{% url 'liftoff' %}" method="get">
+  <label class="subtitle" for="playlist-url">Enter the YouTube playlist URL:</label>
+  <div class="url-row">
+    <input id="playlist-url" type="url" name="url" placeholder="https://www.youtube.com/playlist?list=...">
+    <button type="submit">Go</button>
+  </div>
+</form>
+{% endblock %}

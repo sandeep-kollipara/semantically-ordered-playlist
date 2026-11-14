@@ -1,0 +1,13 @@
+{% extends "pages/base.html" %}
+
+{% block content %}
+<div class="player">
+  <iframe
+    src="{{ embed_url }}"
+    title="Rick Astley - Never Gonna Give You Up"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+    referrerpolicy="strict-origin-when-cross-origin"
+    allowfullscreen
+  ></iframe>
+</div>
+{% endblock %}
