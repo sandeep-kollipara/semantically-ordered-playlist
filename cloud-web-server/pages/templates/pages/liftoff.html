@@ -1,13 +1,288 @@
 {% extends "pages/base.html" %}
 
-{% block content %}
-<div class="player">
-  <iframe
-    src="{{ embed_url }}"
-    title="Rick Astley - Never Gonna Give You Up"
-    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-    referrerpolicy="strict-origin-when-cross-origin"
-    allowfullscreen
-  ></iframe>
+{% block body_class %}liftoff-page{% endblock %}
+
+{% block page %}
+<div class="liftoff">
+  <h1 class="site-title">Semantically Ordered Playlist</h1>
+  <div class="liftoff-body">
+  <section class="stage">
+    {% if embed_url %}
+    <div class="player">
+      <iframe
+        id="yt-player"
+        name="player"
+        src="{{ embed_url }}"
+        title="{{ player_title }}"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        referrerpolicy="strict-origin-when-cross-origin"
+        allowfullscreen
+      ></iframe>
+    </div>
+    {% endif %}
+  </section>
+  <aside class="playlist" data-page="{{ page }}" data-page-size="{{ page_size }}">
+    <form class="song-search" role="search" autocomplete="off">
+      <label class="search-label" for="song-search">Search songs</label>
+      <input id="song-search" class="search-input" type="search" placeholder="Search songs" autocomplete="off" aria-autocomplete="list" aria-controls="song-search-results" aria-expanded="false">
+      <ul class="search-results" id="song-search-results" role="listbox" hidden></ul>
+    </form>
+    {% include "pages/_pager.html" %}
+    <ul class="song-list">
+      {% for video in videos %}
+      <li class="song{% if video.id == playing_id %} is-playing{% endif %}{% if video.index < page_start or video.index >= page_end %} is-offpage{% endif %}" data-video-id="{{ video.id }}">
+        <img class="thumb" src="{{ video.thumbnail_url }}" alt="" width="72" height="72">
+        <div class="song-name-wrap">
+          <a class="song-name" href="{{ video.embed_url }}" target="player" data-index="{{ video.index }}">
+            <span class="song-name-track">
+              <span class="song-name-text">{{ video.title }}</span>
+              <span class="song-name-text" aria-hidden="true">{{ video.title }}</span>
+            </span>
+          </a>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% include "pages/_pager.html" %}
+  </aside>
+  </div>
 </div>
+<script>
+  const songList = document.querySelector(".song-list");
+  const frame = document.querySelector("iframe[name='player']");
+  let requestedId = "";
+
+  function songTitle(link) {
+    const text = link.querySelector(".song-name-text");
+    return (text ? text.textContent : link.textContent).trim();
+  }
+
+  function setPlaying(videoId, fromClick) {
+    if (!videoId) return;
+    if (fromClick) requestedId = videoId;
+    else if (requestedId && videoId !== requestedId) return;
+    else if (requestedId) requestedId = "";
+    let matched = false;
+    document.querySelectorAll(".song").forEach((song) => {
+      const playing = song.dataset.videoId === videoId;
+      const wasPlaying = song.classList.contains("is-playing");
+      song.classList.toggle("is-playing", playing);
+      if (playing) {
+        matched = true;
+        if (!wasPlaying) tuneSlide(song);
+      }
+    });
+    if (!matched) {
+      document.querySelectorAll(".song.is-playing").forEach((song) => {
+        song.classList.remove("is-playing");
+      });
+    }
+  }
+
+  function tuneSlide(song) {
+    const track = song.querySelector(".song-name-track");
+    if (!track) return;
+    const seconds = Math.max(8, track.scrollWidth / 45);
+    track.style.animationDuration = `${seconds}s`;
+  }
+
+  function videoIdFromMessage(data) {
+    const info = data && data.info;
+    if (!info) return "";
+    if (info.videoData && info.videoData.video_id) return info.videoData.video_id;
+    return typeof info.videoId === "string" ? info.videoId : "";
+  }
+
+  function listenToPlayer() {
+    if (!frame.contentWindow) return;
+    frame.contentWindow.postMessage(JSON.stringify({
+      event: "listening",
+      id: frame.id || "yt-player",
+      channel: "widget",
+    }), "*");
+  }
+
+  function playSong(link) {
+    const videoId = new URL(link.href).pathname.split("/").pop();
+    frame.src = link.href;
+    frame.title = songTitle(link);
+    setPlaying(videoId, true);
+    return videoId;
+  }
+
+  if (songList && frame) {
+    songList.addEventListener("click", (event) => {
+      const link = event.target.closest("a.song-name");
+      if (!link) return;
+      event.preventDefault();
+      playSong(link);
+    });
+    frame.addEventListener("load", listenToPlayer);
+    window.addEventListener("message", (event) => {
+      if (!event.origin.endsWith(".youtube.com")) return;
+      let data = event.data;
+      if (typeof data === "string") {
+        try {
+          data = JSON.parse(data);
+        } catch (error) {
+          return;
+        }
+      }
+      setPlaying(videoIdFromMessage(data));
+    });
+    document.querySelectorAll(".song.is-playing").forEach(tuneSlide);
+    window.addEventListener("resize", () => {
+      document.querySelectorAll(".song.is-playing").forEach(tuneSlide);
+    });
+    listenToPlayer();
+  }
+
+  const playlist = document.querySelector(".playlist");
+  if (playlist) {
+    const pageSize = Number(playlist.dataset.pageSize) || 7;
+    let page = Number(playlist.dataset.page) || 1;
+
+    function renderPage() {
+      const items = [...document.querySelectorAll(".song")];
+      const pageCount = Math.max(1, Math.ceil(items.length / pageSize));
+      page = Math.min(Math.max(page, 1), pageCount);
+      const start = (page - 1) * pageSize;
+      items.forEach((song, index) => {
+        song.classList.toggle("is-offpage", index < start || index >= start + pageSize);
+      });
+      document.querySelectorAll(".pager-button").forEach((button) => {
+        const enabled = Number(button.dataset.pageStep) < 0 ? page > 1 : page < pageCount;
+        button.disabled = !enabled;
+        button.classList.toggle("is-disabled", !enabled);
+      });
+      const playing = document.querySelector(".song.is-playing:not(.is-offpage)");
+      if (playing) tuneSlide(playing);
+      const url = new URL(window.location.href);
+      if (page > 1) url.searchParams.set("page", String(page));
+      else url.searchParams.delete("page");
+      if (url.href !== window.location.href) history.replaceState(null, "", url);
+    }
+
+    playlist.addEventListener("click", (event) => {
+      const button = event.target.closest(".pager-button");
+      if (!button || button.disabled) return;
+      page += Number(button.dataset.pageStep);
+      renderPage();
+    });
+
+    const searchForm = playlist.querySelector(".song-search");
+    const searchInput = playlist.querySelector(".search-input");
+    const searchResults = playlist.querySelector(".search-results");
+    if (searchForm && searchInput && searchResults && frame) {
+      let options = [];
+      let activeIndex = -1;
+
+      function songRank(title, query) {
+        if (title.startsWith(query)) return 0;
+        if (title.split(/\s+/).some((word) => word.startsWith(query))) return 1;
+        return 2;
+      }
+
+      function matchingSongs(query) {
+        const needle = query.trim().toLowerCase();
+        if (!needle) return [];
+        return [...playlist.querySelectorAll(".song")]
+          .map((song, index) => {
+            const link = song.querySelector(".song-name");
+            const title = songTitle(link);
+            return { song, link, title, index, rank: songRank(title.toLowerCase(), needle) };
+          })
+          .filter((item) => item.title.toLowerCase().includes(needle))
+          .sort((a, b) => a.rank - b.rank || a.index - b.index)
+          .slice(0, 3);
+      }
+
+      function hideResults() {
+        options = [];
+        activeIndex = -1;
+        searchResults.hidden = true;
+        searchResults.innerHTML = "";
+        searchInput.setAttribute("aria-expanded", "false");
+        searchInput.removeAttribute("aria-activedescendant");
+      }
+
+      function showResults() {
+        options = matchingSongs(searchInput.value);
+        searchResults.innerHTML = "";
+        if (!options.length) {
+          hideResults();
+          return;
+        }
+        options.forEach((item, index) => {
+          const option = document.createElement("li");
+          option.id = `song-search-option-${index}`;
+          option.className = "search-option";
+          option.setAttribute("role", "option");
+          const image = document.createElement("img");
+          image.className = "search-thumb";
+          image.alt = "";
+          image.width = 72;
+          image.height = 72;
+          const thumb = item.song.querySelector(".thumb");
+          if (thumb) image.src = thumb.src;
+          const label = document.createElement("span");
+          label.className = "search-option-title";
+          label.textContent = item.title;
+          option.append(image, label);
+          searchResults.append(option);
+        });
+        activeIndex = -1;
+        searchResults.hidden = false;
+        searchInput.setAttribute("aria-expanded", "true");
+      }
+
+      function setActive(index) {
+        activeIndex = index;
+        [...searchResults.children].forEach((option, optionIndex) => {
+          option.classList.toggle("is-active", optionIndex === index);
+          if (optionIndex === index) searchInput.setAttribute("aria-activedescendant", option.id);
+        });
+      }
+
+      function choose(index) {
+        const item = options[index];
+        if (!item) return;
+        playSong(item.link);
+        page = Math.floor(item.index / pageSize) + 1;
+        renderPage();
+        hideResults();
+      }
+
+      searchForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        if (!options.length) showResults();
+        choose(activeIndex >= 0 ? activeIndex : 0);
+      });
+      searchInput.addEventListener("input", showResults);
+      searchInput.addEventListener("keydown", (event) => {
+        if (event.key === "ArrowDown") {
+          event.preventDefault();
+          if (searchResults.hidden) showResults();
+          if (options.length) setActive((activeIndex + 1) % options.length);
+        } else if (event.key === "ArrowUp") {
+          event.preventDefault();
+          if (options.length) setActive((activeIndex - 1 + options.length) % options.length);
+        } else if (event.key === "Escape") {
+          hideResults();
+        }
+      });
+      searchResults.addEventListener("mousedown", (event) => {
+        if (event.target.closest(".search-option")) event.preventDefault();
+      });
+      searchResults.addEventListener("click", (event) => {
+        const option = event.target.closest(".search-option");
+        if (!option) return;
+        choose([...searchResults.children].indexOf(option));
+      });
+      document.addEventListener("click", (event) => {
+        if (!searchForm.contains(event.target)) hideResults();
+      });
+    }
+  }
+</script>
 {% endblock %}

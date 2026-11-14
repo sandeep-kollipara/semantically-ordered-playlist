@@ -5,12 +5,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Semantically Ordered Playlist</title>
-  <link rel="stylesheet" href="{% static 'pages/style.css' %}">
+  <link rel="stylesheet" href="{% static 'pages/style.css' %}?v=11">
 </head>
-<body>
+<body class="{% block body_class %}{% endblock %}">
+  {% block page %}
   <main>
     <h1>Semantically Ordered Playlist</h1>
     {% block content %}{% endblock %}
   </main>
+  {% endblock %}
 </body>
 </html>

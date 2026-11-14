@@ -1,10 +1,14 @@
 {% extends "pages/base.html" %}
 
 {% block content %}
-<form class="playlist-form" action="{% url 'liftoff' %}" method="get">
+<form class="playlist-form" action="{% url 'landing' %}" method="post" novalidate>
+  {% csrf_token %}
   <label class="subtitle" for="playlist-url">Enter the YouTube playlist URL:</label>
+  {% if error %}
+    <p class="form-error" role="alert">{{ error }}</p>
+  {% endif %}
   <div class="url-row">
-    <input id="playlist-url" type="url" name="url" placeholder="https://www.youtube.com/playlist?list=...">
+    <input id="playlist-url" type="url" name="url" value="{{ submitted_url }}" placeholder="https://www.youtube.com/playlist?list=...">
     <button type="submit">Go</button>
   </div>
 </form>
