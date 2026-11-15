@@ -1,0 +1,8 @@
+transformers==4.53.2
+huggingface-hub==0.33.4
+safetensors==0.5.3
+soundfile==0.13.1
+fastapi==0.116.1
+uvicorn==0.35.0
+python-multipart==0.0.20
+numpy==2.2.6
