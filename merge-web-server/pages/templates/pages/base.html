@@ -9,15 +9,15 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Vibesort">
-  <title>Semantically Ordered Playlist</title>
+  <title>Vibesort</title>
   <link rel="manifest" href="{% url 'manifest' %}">
   <link rel="apple-touch-icon" href="{% static 'pages/icon-180.png' %}">
-  <link rel="stylesheet" href="{% static 'pages/style.css' %}?v=39">
+  <link rel="stylesheet" href="{% static 'pages/style.css' %}?v=44">
 </head>
 <body class="{% block body_class %}{% endblock %}">
   {% block page %}
   <main>
-    <h1>Semantically Ordered Playlist</h1>
+    {% include "pages/_brand_title.html" %}
     {% block content %}{% endblock %}
   </main>
   {% endblock %}

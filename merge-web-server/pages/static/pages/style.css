@@ -35,6 +35,46 @@ h1 {
   line-height: 1.2;
 }
 
+.brand-title {
+  --brand-mark: 5.5rem;
+  position: relative;
+  display: inline-flex;
+  align-items: flex-end;
+  justify-content: center;
+  margin: 0 0 1.75rem;
+  font-family: "Times New Roman", Times, serif;
+  font-weight: normal;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.brand-word {
+  display: block;
+  height: var(--brand-mark);
+  width: auto;
+}
+
+.brand-sort {
+  font-family: "Times New Roman", Times, serif;
+  font-weight: normal;
+  font-size: calc(var(--brand-mark) * 1.3);
+  line-height: 1;
+  margin-left: -0.03em;
+  transform: translateY(calc(var(--brand-mark) * 0.09));
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .subtitle {
   display: block;
   margin: 0 0 0.75rem;
@@ -147,6 +187,12 @@ body.liftoff-page {
   text-align: center;
 }
 
+.site-title .brand-title {
+  --brand-mark: 3.75rem;
+  width: 100%;
+  margin: 0;
+}
+
 .leave-liftoff {
   grid-column: 3;
   justify-self: end;
@@ -236,11 +282,12 @@ body.liftoff-page {
 
 .search-row {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: stretch;
   gap: 0.5rem;
   align-self: stretch;
   width: 100%;
+  min-width: 0;
   margin: 0 0 0.75rem;
 }
 
@@ -389,14 +436,14 @@ body.liftoff-page {
 
 .song-search {
   position: relative;
-  flex: 1 1 12rem;
-  min-width: 8rem;
+  flex: 1 1 0;
+  min-width: 0;
   margin: 0;
 }
 
 .vector-actions {
   display: flex;
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 0.5rem;
@@ -404,6 +451,7 @@ body.liftoff-page {
 }
 
 .vector-action {
+  flex: 0 0 auto;
   padding: 0.45rem 0.75rem;
   font: inherit;
   font-size: 1rem;
@@ -851,6 +899,24 @@ a.song-name:visited {
     overflow: visible;
   }
 
+  .site-title {
+    padding-right: calc(0.5rem + env(safe-area-inset-right));
+    padding-left: calc(0.5rem + env(safe-area-inset-left));
+  }
+
+  .brand-title {
+    --brand-mark: 4.25rem;
+  }
+
+  .site-title .brand-title {
+    --brand-mark: 3.15rem;
+  }
+
+  .site-footer {
+    padding-right: calc(0.5rem + env(safe-area-inset-right));
+    padding-left: calc(0.5rem + env(safe-area-inset-left));
+  }
+
   .stage {
     position: relative;
     top: auto;
@@ -861,7 +927,7 @@ a.song-name:visited {
     justify-content: flex-start;
     width: auto;
     max-height: 0;
-    padding: 0 1rem;
+    padding: 0 0.5rem;
     overflow: hidden;
     transform: none;
     transition: max-height 0.45s ease, padding 0.45s ease;
@@ -870,7 +936,7 @@ a.song-name:visited {
   .liftoff-body.is-player-open .stage,
   .liftoff-body.is-player-instant .stage {
     max-height: 40rem;
-    padding: 0.75rem 1rem 1rem;
+    padding: 0.5rem 0.5rem 0.75rem;
     overflow: visible;
     transform: none;
   }
@@ -882,8 +948,10 @@ a.song-name:visited {
   .playlist,
   .liftoff-body.is-player-open .playlist {
     flex: 0 0 auto;
-    width: min(720px, calc(100% - 2rem));
-    margin: 0 auto;
+    width: 100%;
+    margin: 0;
+    padding-right: calc(0.5rem + env(safe-area-inset-right));
+    padding-left: calc(0.5rem + env(safe-area-inset-left));
     border-left: 0;
   }
 }
