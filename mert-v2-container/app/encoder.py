@@ -13,7 +13,9 @@ MODEL_ID = os.environ.get("MERT_MODEL", "m-a-p/MERT-v2-30s")
 class Encoder:
     def __init__(self) -> None:
         requested = os.environ.get("MERT_DEVICE", "cpu")
-        if requested == "cuda" and torch.cuda.is_available():
+        if requested == "cuda":
+            if not torch.cuda.is_available():
+                raise RuntimeError("MERT_DEVICE=cuda but this process cannot use CUDA.")
             self.device = "cuda"
         else:
             self.device = "cpu"
@@ -36,6 +38,10 @@ class Encoder:
         self.model = AutoModel.from_pretrained(
             self.model_id, trust_remote_code=True
         ).eval().to(self.device)
+        if self.device == "cuda":
+            name = torch.cuda.get_device_name(0)
+            capability = torch.cuda.get_device_capability(0)
+            print(f"MERT loaded on {name} (sm_{capability[0]}{capability[1]})", flush=True)
         self.sample_rate = int(self.processor.sampling_rate)
         self.dimension = int(self.model.config.hidden_size)
         self.layers = int(self.model.config.num_hidden_layers)

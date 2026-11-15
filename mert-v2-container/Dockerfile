@@ -5,7 +5,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     HF_HOME=/cache/huggingface \
     HF_HUB_DISABLE_TELEMETRY=1 \
     MERT_MODEL=m-a-p/MERT-v2-30s \
-    MERT_DEVICE=cpu \
+    MERT_DEVICE=cuda \
     CLASS_STORE=/cache/classes/prototypes.json
 
 RUN apt-get update \
@@ -16,8 +16,8 @@ WORKDIR /app
 
 COPY requirements.txt constraints.txt ./
 RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir torch==2.6.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cpu \
-    && pip install --no-cache-dir -c constraints.txt -r requirements.txt
+    && pip install --no-cache-dir torch==2.9.1 torchaudio==2.9.1 --index-url https://download.pytorch.org/whl/cu128 \
+    && pip install --no-cache-dir -c constraints.txt -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu128
 
 COPY app ./app
 

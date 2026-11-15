@@ -6,7 +6,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 IMAGE="${MERT_IMAGE:-mert-v2-30s}"
 NAME="${MERT_CONTAINER:-mert-v2-30s}"
 PORT="${MERT_PORT:-8088}"
-DEVICE="${MERT_DEVICE:-cpu}"
+DEVICE="${MERT_DEVICE:-cuda}"
 CACHE_VOLUME="${MERT_CACHE_VOLUME:-mert-v2-hf-cache}"
 CLASS_VOLUME="${MERT_CLASS_VOLUME:-mert-v2-classes}"
 
@@ -22,7 +22,7 @@ Usage: ./deploy.sh <start|stop|restart|status|logs>
 
 Environment:
   MERT_PORT     Host port (default 8088; 8080 is often already taken)
-  MERT_DEVICE   cpu or cuda (default cpu)
+  MERT_DEVICE   cpu or cuda (default cuda)
 
 The API embeds 30-second clips with m-a-p/MERT-v2-30s.
   POST /embeddings     vector for one clip
@@ -105,6 +105,7 @@ start_container() {
 import socket, sys
 port = int(sys.argv[1])
 sock = socket.socket()
+sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 try:
     sock.bind(("0.0.0.0", port))
 except OSError:

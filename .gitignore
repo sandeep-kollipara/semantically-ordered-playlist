@@ -218,3 +218,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# offline-batch-testing
+/offline-batch-testing/audio_clips_30s
