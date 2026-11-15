@@ -1,6 +1,7 @@
 """Build a playlist distance matrix with MERT-v2-30s, then discard the scratch data."""
 
 import json
+import os
 import shutil
 import subprocess
 import tempfile
@@ -167,12 +168,26 @@ def _saved_clip(audio_dir, stem):
     return matches[0] if matches else None
 
 
+def _container_env():
+    env = os.environ.copy()
+    if env.get("MERT_DEVICE"):
+        return env
+    nvidia = shutil.which("nvidia-smi")
+    if not nvidia:
+        env["MERT_DEVICE"] = "cpu"
+        return env
+    completed = subprocess.run([nvidia], check=False, capture_output=True)
+    if completed.returncode != 0:
+        env["MERT_DEVICE"] = "cpu"
+    return env
+
+
 def _ensure_mert():
     if _mert_ready():
         return
     if not _DEPLOY.exists():
         raise RuntimeError("The MERT container is not running and its deploy script is missing.")
-    completed = subprocess.run([str(_DEPLOY), "start"], check=False)
+    completed = subprocess.run([str(_DEPLOY), "start"], check=False, env=_container_env())
     if completed.returncode != 0 or not _mert_ready():
         raise RuntimeError("The MERT container did not become ready.")
 

@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -19,13 +20,28 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-8yyg+gjrwp03_($-mc)6e107smnr^9^5(uni!gh++$-+rk=+lv'
+# The production service sets DJANGO_SECRET_KEY. The insecure key is only for
+# local development, where DJANGO_DEBUG stays on.
+_INSECURE_KEY = "django-insecure-8yyg+gjrwp03_($-mc)6e107smnr^9^5(uni!gh++$-+rk=+lv"
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", _INSECURE_KEY)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get("DJANGO_DEBUG", "true").lower() in {"1", "true", "yes"}
+if not DEBUG and SECRET_KEY == _INSECURE_KEY:
+    raise RuntimeError("Set DJANGO_SECRET_KEY when DJANGO_DEBUG is off.")
 
-ALLOWED_HOSTS = ["vibesort.io", "localhost", "127.0.0.1"]
+
+def _csv(name, default):
+    return [item.strip() for item in os.environ.get(name, default).split(",") if item.strip()]
+
+
+ALLOWED_HOSTS = _csv("DJANGO_ALLOWED_HOSTS", "vibesort.io,localhost,127.0.0.1")
+CSRF_TRUSTED_ORIGINS = _csv(
+    "DJANGO_CSRF_ORIGINS",
+    "https://vibesort.io,http://localhost:8765,http://127.0.0.1:8765",
+)
+# Set DJANGO_BEHIND_HTTPS=true when a proxy terminates TLS, as the tunnel does.
+BEHIND_HTTPS = os.environ.get("DJANGO_BEHIND_HTTPS", "false").lower() in {"1", "true", "yes"}
 
 # YouTube's embed player rejects the request (error 153) unless the browser
 # sends a Referer. Django's default same-origin policy omits it cross-origin.
@@ -46,6 +62,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -120,6 +137,26 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+    },
+}
+
+if not DEBUG:
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+
+if not DEBUG and BEHIND_HTTPS:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_SSL_REDIRECT = True
+    SECURE_HSTS_SECONDS = 3600
+    SECURE_HSTS_PRELOAD = False
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = False
 
 
 # Email
@@ -127,10 +164,12 @@ STATIC_URL = 'static/'
 
 MAILERS = {
     'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
+        'BACKEND': (
+            'django.core.mail.backends.console.EmailBackend'
+            if DEBUG
+            else 'django.core.mail.backends.smtp.EmailBackend'
+        ),
     },
 }
-
-CSRF_TRUSTED_ORIGINS = ["https://vibesort.io"]
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
