@@ -297,7 +297,9 @@ body.liftoff-page {
 }
 
 .saved-row {
-  display: flex;
+  --saved-square: calc(1.2rem + 1.1rem + 2px);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) var(--saved-square);
   align-items: center;
   gap: 0.5rem;
   min-width: 0;
@@ -305,6 +307,7 @@ body.liftoff-page {
 
 .saved-logo {
   flex: 0 0 auto;
+  align-self: center;
   display: flex;
   width: 1.7rem;
   height: 1.7rem;
@@ -317,9 +320,13 @@ body.liftoff-page {
 }
 
 .saved-open {
-  flex: 1;
+  align-self: center;
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--saved-square);
   min-width: 0;
   padding: 0.55rem 0.75rem;
+  line-height: 1.2;
   overflow: hidden;
   font: inherit;
   font-size: 1rem;
@@ -338,9 +345,22 @@ body.liftoff-page {
 }
 
 .saved-remove {
-  flex: 0 0 auto;
-  width: 2.4rem;
-  padding: 0.55rem 0;
+  appearance: none;
+  align-self: center;
+  justify-self: stretch;
+  display: inline-grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: var(--saved-square);
+  height: var(--saved-square);
+  min-width: var(--saved-square);
+  max-width: var(--saved-square);
+  min-height: var(--saved-square);
+  max-height: var(--saved-square);
+  padding: 0;
+  aspect-ratio: 1;
+  font-size: 1.35rem;
+  line-height: 1;
 }
 
 .song-search {

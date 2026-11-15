@@ -118,7 +118,7 @@ function initSavedList() {
       const remove = document.createElement("button");
       remove.type = "button";
       remove.className = "saved-remove";
-      remove.textContent = "X";
+      remove.textContent = "×";
       remove.setAttribute("aria-label", `Remove ${item.name}`);
       row.append(link, remove);
       list.append(row);
