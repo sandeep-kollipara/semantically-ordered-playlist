@@ -1,0 +1,2 @@
+sudo sed -i 's|^deb \[arch=amd64,arm64\]|deb [arch=amd64,arm64 signed-by=/usr/share/keyrings/anysphere.gpg]|' /etc/apt/sources.list.d/cursor.list
+sudo apt-get update && sudo apt-get install cloudflared

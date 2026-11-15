@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-8yyg+gjrwp03_($-mc)6e107smnr^9^5(uni!gh++$-+rk=+lv
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["vibesort.io", "localhost", "127.0.0.1"]
 
 # YouTube's embed player rejects the request (error 153) unless the browser
 # sends a Referer. Django's default same-origin policy omits it cross-origin.
@@ -130,3 +130,7 @@ MAILERS = {
         'BACKEND': 'django.core.mail.backends.console.EmailBackend',
     },
 }
+
+CSRF_TRUSTED_ORIGINS = ["https://vibesort.io"]
+
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
