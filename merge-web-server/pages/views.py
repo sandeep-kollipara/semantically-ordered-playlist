@@ -4,6 +4,7 @@ from urllib.parse import urlencode
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
+from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_exempt
 
 from .vectorize import start_vectorize, vectorize_status
@@ -69,6 +70,7 @@ def leave(request):
     return redirect(reverse("landing"))
 
 
+@never_cache
 def landing(request):
     submitted_url = ""
     error = ""
@@ -87,6 +89,7 @@ def landing(request):
     )
 
 
+@never_cache
 def liftoff(request):
     playlist_url = request.GET.get("url", "").strip()
     videos = public_playlist_videos(playlist_url)
@@ -137,6 +140,7 @@ def liftoff(request):
     )
 
 
+@never_cache
 def liftoff2(request):
     playlist_url = request.GET.get("url", "").strip()
     playlist_id = spotify_playlist_id(playlist_url)
@@ -189,12 +193,49 @@ def _player_url(video_id, playlist_id, following_ids, use_list):
     # in order. Mixes and playlists YouTube will not embed that way use the
     # loaded songs instead. The path video has to be first in that queue, or
     # YouTube starts on the next id and each link plays the song below it.
-    params = {"autoplay": "1", "rel": "0", "enablejsapi": "1"}
+    params = {"autoplay": "1", "playsinline": "1", "rel": "0", "enablejsapi": "1"}
     if use_list:
         params["list"] = playlist_id
     else:
         params["playlist"] = ",".join([video_id, *following_ids][:EMBED_QUEUE_LIMIT])
     return f"https://www.youtube.com/embed/{video_id}?{urlencode(params, safe=',')}"
+
+
+def web_manifest(request):
+    manifest = {
+        "id": "/",
+        "name": "Semantically Ordered Playlist",
+        "short_name": "Vibesort",
+        "start_url": "/",
+        "scope": "/",
+        "display": "standalone",
+        "background_color": "#ffffff",
+        "theme_color": "#ffffff",
+        "icons": [
+            {"src": "/static/pages/icon-180.png", "sizes": "180x180", "type": "image/png"},
+            {"src": "/static/pages/icon-192.png", "sizes": "192x192", "type": "image/png"},
+            {"src": "/static/pages/icon-512.png", "sizes": "512x512", "type": "image/png"},
+        ],
+    }
+    response = JsonResponse(manifest, content_type="application/manifest+json")
+    response["Cache-Control"] = "no-cache"
+    return response
+
+
+def service_worker(request):
+    script = """
+self.addEventListener("install", (event) => {
+  self.skipWaiting();
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(self.clients.claim());
+});
+""".strip()
+    response = HttpResponse(script, content_type="application/javascript")
+    response["Service-Worker-Allowed"] = "/"
+    response["Cache-Control"] = "no-cache"
+    return response
 
 
 def _page_number(raw_page, page_count):

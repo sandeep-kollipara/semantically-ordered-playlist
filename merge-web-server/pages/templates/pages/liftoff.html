@@ -19,15 +19,38 @@
   <section class="stage" id="player-stage">
     {% if embed_url %}
     <div class="player">
-      <iframe
-        id="yt-player"
-        name="player"
-        src="{{ embed_url }}"
-        title="{{ player_title }}"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-        referrerpolicy="strict-origin-when-cross-origin"
-        allowfullscreen
-      ></iframe>
+      <script>
+        (function () {
+          var full = "{{ embed_url|escapejs }}";
+          var title = "{{ player_title|escapejs }}";
+          var mobile = window.matchMedia("(max-width: 800px)").matches;
+          var src = full;
+          if (mobile) {
+            var id = new URL(full, window.location.href).pathname.split("/").pop();
+            var url = new URL("https://www.youtube.com/embed/" + id);
+            url.searchParams.set("autoplay", "1");
+            url.searchParams.set("playsinline", "1");
+            url.searchParams.set("rel", "0");
+            url.searchParams.set("enablejsapi", "1");
+            url.searchParams.set("origin", window.location.origin);
+            src = url.toString();
+            var body = document.currentScript.closest(".liftoff-body");
+            if (body) {
+              body.classList.add("is-player-open", "is-player-instant");
+              body.getBoundingClientRect();
+            }
+          }
+          var frame = document.createElement("iframe");
+          frame.id = "yt-player";
+          frame.name = "player";
+          frame.title = title;
+          frame.setAttribute("allow", "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share");
+          frame.referrerPolicy = "strict-origin-when-cross-origin";
+          frame.allowFullscreen = true;
+          frame.src = src;
+          document.currentScript.parentNode.insertBefore(frame, document.currentScript);
+        })();
+      </script>
     </div>
     {% endif %}
   </section>
@@ -35,9 +58,9 @@
     <p class="vector-progress" hidden></p>
     <div class="search-row">
     {% if embed_url %}
-    <button type="button" class="player-toggle" aria-expanded="false" aria-controls="player-stage" aria-label="Show the video player">
+    <a class="player-toggle" href="{{ embed_url }}" target="player" aria-expanded="false" aria-controls="player-stage" aria-label="Show the video player">
       <span class="player-toggle-icon" aria-hidden="true">→</span>
-    </button>
+    </a>
     {% endif %}
     {% include "pages/_save_button.html" %}
     <form class="song-search" role="search" autocomplete="off">
@@ -79,6 +102,8 @@
   const songList = document.querySelector(".song-list");
   const frame = document.querySelector("iframe[name='player']");
   let requestedId = "";
+  let endedVideoId = "";
+  let advanceTimer = 0;
 
   function songTitle(link) {
     const text = link.querySelector(".song-name-text");
@@ -121,6 +146,54 @@
     return typeof info.videoId === "string" ? info.videoId : "";
   }
 
+  function commandPlayer(func, args) {
+    if (!frame || !frame.contentWindow) return;
+    frame.contentWindow.postMessage(JSON.stringify({
+      event: "command",
+      func,
+      args,
+      id: frame.id || "yt-player",
+      channel: "widget",
+    }), "*");
+  }
+
+  function playerStateFromMessage(data) {
+    if (!data) return null;
+    if (data.event === "onStateChange" && typeof data.info === "number") return data.info;
+    if (data.info && typeof data.info.playerState === "number") return data.info.playerState;
+    return null;
+  }
+
+  function continuePlaylist(endedId) {
+    const songs = [...document.querySelectorAll(".song")];
+    const current = songs.findIndex((song) => song.dataset.videoId === endedId);
+    const next = current >= 0 ? songs[current + 1] : null;
+    const link = next && next.querySelector(".song-name");
+    if (!next || !link) return;
+    const nextId = next.dataset.videoId;
+    commandPlayer("loadVideoById", [nextId, 0]);
+    commandPlayer("playVideo", []);
+    frame.title = songTitle(link);
+    setPlaying(nextId, true);
+    if (typeof window.showPlaylistSong === "function") window.showPlaylistSong(next);
+  }
+
+  function notePlayback(data) {
+    const state = playerStateFromMessage(data);
+    const videoId = videoIdFromMessage(data);
+    if ((state === 1 || state === 3) || (videoId && videoId !== endedVideoId)) {
+      window.clearTimeout(advanceTimer);
+      if (videoId && videoId !== endedVideoId) endedVideoId = "";
+    }
+    if (state !== 0) return;
+    const playingSong = document.querySelector(".song.is-playing");
+    const id = videoId || (playingSong && playingSong.dataset.videoId) || "";
+    if (!id || endedVideoId === id) return;
+    endedVideoId = id;
+    window.clearTimeout(advanceTimer);
+    advanceTimer = window.setTimeout(() => continuePlaylist(id), 700);
+  }
+
   function listenToPlayer() {
     if (!frame.contentWindow) return;
     frame.contentWindow.postMessage(JSON.stringify({
@@ -131,6 +204,8 @@
   }
 
   function playSong(link) {
+    window.clearTimeout(advanceTimer);
+    endedVideoId = "";
     const videoId = new URL(link.href).pathname.split("/").pop();
     frame.src = link.href;
     frame.title = songTitle(link);
@@ -138,10 +213,66 @@
     return videoId;
   }
 
+  let askedToPlay = false;
+
+  function mobilePlayUrl(href) {
+    const id = new URL(href, window.location.href).pathname.split("/").pop();
+    const url = new URL(`https://www.youtube.com/embed/${id}`);
+    url.searchParams.set("autoplay", "1");
+    url.searchParams.set("playsinline", "1");
+    url.searchParams.set("rel", "0");
+    url.searchParams.set("enablejsapi", "1");
+    url.searchParams.set("origin", window.location.origin);
+    return url.toString();
+  }
+
+  function askMobilePlay() {
+    if (askedToPlay || !frame.contentWindow || !window.matchMedia("(max-width: 800px)").matches) return;
+    askedToPlay = true;
+    frame.contentWindow.postMessage(JSON.stringify({
+      event: "command",
+      func: "playVideo",
+      args: [],
+    }), "*");
+  }
+
+  function startMobileVideo(href, title, videoId) {
+    window.clearTimeout(advanceTimer);
+    endedVideoId = "";
+    askedToPlay = false;
+    revealPlayer();
+    if (title) frame.title = title;
+    frame.src = mobilePlayUrl(href);
+    if (videoId) setPlaying(videoId, true);
+    const toggle = document.querySelector(".player-toggle");
+    if (toggle) {
+      toggle.setAttribute("aria-expanded", "true");
+      const icon = toggle.querySelector(".player-toggle-icon");
+      if (icon) icon.textContent = "↑";
+    }
+  }
+
+  function revealPlayer() {
+    const body = document.querySelector(".liftoff-body");
+    const stage = document.getElementById("player-stage");
+    if (!body) return;
+    body.classList.add("is-player-open", "is-player-instant");
+    if (stage) stage.getBoundingClientRect();
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => body.classList.remove("is-player-instant"));
+    });
+  }
+
   if (songList && frame) {
     songList.addEventListener("click", (event) => {
       const link = event.target.closest("a.song-name");
       if (!link) return;
+      const mobile = window.matchMedia("(max-width: 800px)").matches;
+      if (mobile) {
+        event.preventDefault();
+        startMobileVideo(link.href, songTitle(link), new URL(link.href).pathname.split("/").pop());
+        return;
+      }
       event.preventDefault();
       playSong(link);
     });
@@ -156,6 +287,8 @@
           return;
         }
       }
+      if (data && (data.event === "onReady" || data.event === "initialDelivery")) askMobilePlay();
+      notePlayback(data);
       setPlaying(videoIdFromMessage(data));
     });
     document.querySelectorAll(".song.is-playing").forEach(tuneSlide);

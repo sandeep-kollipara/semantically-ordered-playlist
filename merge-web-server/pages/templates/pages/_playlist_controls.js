@@ -25,6 +25,18 @@
       if (url.href !== window.location.href) history.replaceState(null, "", url);
     }
 
+    window.showPlaylistSong = function (song) {
+      const items = [...document.querySelectorAll(".song")];
+      const index = items.indexOf(song);
+      if (index < 0) return;
+      const nextPage = Math.floor(index / pageSize) + 1;
+      if (nextPage !== page) {
+        page = nextPage;
+        renderPage();
+      }
+      song.scrollIntoView({ block: "nearest" });
+    }
+
     function renderPageNumbers(current, pageCount) {
       const numbers = [];
       [1, current - 1, current, current + 1, pageCount].forEach((number) => {
@@ -272,10 +284,11 @@
 
   const playerToggle = document.querySelector(".player-toggle");
   const liftoffBody = document.querySelector(".liftoff-body");
+  const mobilePlayerQuery = window.matchMedia("(max-width: 800px)");
   if (playerToggle && liftoffBody) {
     const icon = playerToggle.querySelector(".player-toggle-icon");
-    playerToggle.addEventListener("click", () => {
-      const open = liftoffBody.classList.toggle("is-player-open");
+    const syncPlayerToggle = () => {
+      const open = liftoffBody.classList.contains("is-player-open");
       playerToggle.setAttribute("aria-expanded", open ? "true" : "false");
       playerToggle.setAttribute(
         "aria-label",
@@ -283,6 +296,30 @@
           ? (playerToggle.dataset.hideLabel || "Hide the video player")
           : (playerToggle.dataset.showLabel || "Show the video player")
       );
-      if (icon) icon.textContent = open ? "←" : "→";
+      if (icon) {
+        icon.textContent = mobilePlayerQuery.matches ? (open ? "↑" : "↓") : (open ? "←" : "→");
+      }
+    };
+    playerToggle.addEventListener("click", (event) => {
+      event.preventDefault();
+      const open = liftoffBody.classList.contains("is-player-open");
+      if (mobilePlayerQuery.matches && playerToggle.tagName === "A") {
+        const playerFrame = document.getElementById("yt-player");
+        if (open) {
+          liftoffBody.classList.remove("is-player-open");
+        } else if (typeof startMobileVideo === "function" && playerFrame && !playerFrame.getAttribute("src")) {
+          startMobileVideo(playerFrame.dataset.pendingSrc || playerToggle.href);
+        } else if (typeof revealPlayer === "function") {
+          revealPlayer();
+        } else {
+          liftoffBody.classList.add("is-player-open");
+        }
+        syncPlayerToggle();
+        return;
+      }
+      liftoffBody.classList.toggle("is-player-open");
+      syncPlayerToggle();
     });
+    mobilePlayerQuery.addEventListener("change", syncPlayerToggle);
+    syncPlayerToggle();
   }
