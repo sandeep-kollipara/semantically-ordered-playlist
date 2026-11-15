@@ -1,0 +1,37 @@
+{% extends "pages/base.html" %}
+
+{% block content %}
+<form class="playlist-form" action="{% url 'landing' %}" method="post" novalidate>
+  {% csrf_token %}
+  <label class="subtitle" for="playlist-url">Enter the playlist URL:</label>
+  {% if error %}
+    <p class="form-error" role="alert">{{ error }}</p>
+  {% endif %}
+  <div class="url-row">
+    <input id="playlist-url" type="url" name="url" value="{{ submitted_url }}" placeholder="YouTube or Spotify playlist URL">
+    <button type="submit">Go</button>
+  </div>
+</form>
+<section class="saved-pane" aria-labelledby="saved-heading">
+  <h2 id="saved-heading" class="saved-heading">Saved Playlists</h2>
+  <ul class="saved-list"></ul>
+</section>
+<template id="saved-logo-youtube">
+  <span class="saved-logo" role="img" aria-label="YouTube">
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <rect x="0.6" y="4.2" width="22.8" height="15.6" rx="4.4" fill="#FF0000"/>
+      <path fill="#fff" d="M9.8 8.6v6.8l6.4-3.4-6.4-3.4z"/>
+    </svg>
+  </span>
+</template>
+<template id="saved-logo-spotify">
+  <span class="saved-logo" role="img" aria-label="Spotify">
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <circle cx="12" cy="12" r="12" fill="#1DB954"/>
+      <path d="M6.3 10.2 Q12 7.2 17.8 9.5" fill="none" stroke="#191414" stroke-width="1.55" stroke-linecap="round"/>
+      <path d="M7.2 13.1 Q12 10.6 16.9 12.5" fill="none" stroke="#191414" stroke-width="1.4" stroke-linecap="round"/>
+      <path d="M8.1 15.7 Q12 13.8 15.9 15.2" fill="none" stroke="#191414" stroke-width="1.25" stroke-linecap="round"/>
+    </svg>
+  </span>
+</template>
+{% endblock %}

@@ -1,0 +1,171 @@
+{% extends "pages/base.html" %}
+{% load static %}
+
+{% block body_class %}liftoff-page{% endblock %}
+
+{% block page %}
+<div class="liftoff">
+  <header class="site-title">
+    <span class="brand-logo" role="img" aria-label="YouTube">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <rect x="0.6" y="4.2" width="22.8" height="15.6" rx="4.4" fill="#FF0000"/>
+        <path fill="#fff" d="M9.8 8.6v6.8l6.4-3.4-6.4-3.4z"/>
+      </svg>
+    </span>
+    <h1>Semantically Ordered Playlist</h1>
+    <button type="button" class="leave-liftoff" data-leave="{{ leave_url }}" data-landing="{% url 'landing' %}" aria-label="Return to the landing page">×</button>
+  </header>
+  <div class="liftoff-body">
+  <section class="stage" id="player-stage">
+    {% if embed_url %}
+    <div class="player">
+      <iframe
+        id="yt-player"
+        name="player"
+        src="{{ embed_url }}"
+        title="{{ player_title }}"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        referrerpolicy="strict-origin-when-cross-origin"
+        allowfullscreen
+      ></iframe>
+    </div>
+    {% endif %}
+  </section>
+  <aside class="playlist" data-page="{{ page }}" data-page-size="{{ page_size }}">
+    <p class="vector-progress" hidden></p>
+    <div class="search-row">
+    {% if embed_url %}
+    <button type="button" class="player-toggle" aria-expanded="false" aria-controls="player-stage" aria-label="Show the video player">
+      <span class="player-toggle-icon" aria-hidden="true">→</span>
+    </button>
+    {% endif %}
+    {% include "pages/_save_button.html" %}
+    <form class="song-search" role="search" autocomplete="off">
+      <label class="search-label" for="song-search">Search songs</label>
+      <input id="song-search" class="search-input" type="search" placeholder="Search songs" autocomplete="off" aria-autocomplete="list" aria-controls="song-search-results" aria-expanded="false">
+      <ul class="search-results" id="song-search-results" role="listbox" hidden></ul>
+    </form>
+    <div class="vector-actions" data-playlist-url="{{ playlist_url }}" data-playlist-id="{{ playlist_id }}">
+      <button type="button" class="vector-action vectorize is-rainbow" id="vectorize-playlist">Vectorize</button>
+      <button type="button" class="vector-action vibesort" id="vibesort-playlist" disabled>Vibesort</button>
+      <p class="vector-status" hidden></p>
+    </div>
+    </div>
+    {% include "pages/_pager.html" %}
+    <ul class="song-list">
+      {% for video in videos %}
+      <li class="song{% if video.id == playing_id %} is-playing{% endif %}{% if video.index < page_start or video.index >= page_end %} is-offpage{% endif %}" data-video-id="{{ video.id }}">
+        <span class="thumb-frame">
+          <img class="thumb" src="{{ video.thumbnail_url }}" alt="" width="72" height="72">
+          <span class="play-mark" aria-hidden="true"></span>
+        </span>
+        <div class="song-name-wrap">
+          <a class="song-name" href="{{ video.embed_url }}" target="player" data-index="{{ video.index }}">
+            <span class="song-name-track">
+              <span class="song-name-text">{{ video.title }}</span>
+              <span class="song-name-text" aria-hidden="true">{{ video.title }}</span>
+            </span>
+          </a>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% include "pages/_pager.html" %}
+  </aside>
+  </div>
+  <footer class="site-footer">© 2026 All rights reserved.</footer>
+</div>
+<script>
+  const songList = document.querySelector(".song-list");
+  const frame = document.querySelector("iframe[name='player']");
+  let requestedId = "";
+
+  function songTitle(link) {
+    const text = link.querySelector(".song-name-text");
+    return (text ? text.textContent : link.textContent).trim();
+  }
+
+  function setPlaying(videoId, fromClick) {
+    if (!videoId) return;
+    if (fromClick) requestedId = videoId;
+    else if (requestedId && videoId !== requestedId) return;
+    else if (requestedId) requestedId = "";
+    let matched = false;
+    document.querySelectorAll(".song").forEach((song) => {
+      const playing = song.dataset.videoId === videoId;
+      const wasPlaying = song.classList.contains("is-playing");
+      song.classList.toggle("is-playing", playing);
+      if (playing) {
+        matched = true;
+        if (!wasPlaying) tuneSlide(song);
+      }
+    });
+    if (!matched) {
+      document.querySelectorAll(".song.is-playing").forEach((song) => {
+        song.classList.remove("is-playing");
+      });
+    }
+  }
+
+  function tuneSlide(song) {
+    const track = song.querySelector(".song-name-track");
+    if (!track) return;
+    const seconds = Math.max(8, track.scrollWidth / 45);
+    track.style.animationDuration = `${seconds}s`;
+  }
+
+  function videoIdFromMessage(data) {
+    const info = data && data.info;
+    if (!info) return "";
+    if (info.videoData && info.videoData.video_id) return info.videoData.video_id;
+    return typeof info.videoId === "string" ? info.videoId : "";
+  }
+
+  function listenToPlayer() {
+    if (!frame.contentWindow) return;
+    frame.contentWindow.postMessage(JSON.stringify({
+      event: "listening",
+      id: frame.id || "yt-player",
+      channel: "widget",
+    }), "*");
+  }
+
+  function playSong(link) {
+    const videoId = new URL(link.href).pathname.split("/").pop();
+    frame.src = link.href;
+    frame.title = songTitle(link);
+    setPlaying(videoId, true);
+    return videoId;
+  }
+
+  if (songList && frame) {
+    songList.addEventListener("click", (event) => {
+      const link = event.target.closest("a.song-name");
+      if (!link) return;
+      event.preventDefault();
+      playSong(link);
+    });
+    frame.addEventListener("load", listenToPlayer);
+    window.addEventListener("message", (event) => {
+      if (!event.origin.endsWith(".youtube.com")) return;
+      let data = event.data;
+      if (typeof data === "string") {
+        try {
+          data = JSON.parse(data);
+        } catch (error) {
+          return;
+        }
+      }
+      setPlaying(videoIdFromMessage(data));
+    });
+    document.querySelectorAll(".song.is-playing").forEach(tuneSlide);
+    window.addEventListener("resize", () => {
+      document.querySelectorAll(".song.is-playing").forEach(tuneSlide);
+    });
+    listenToPlayer();
+  }
+
+  {% include "pages/_playlist_controls.js" %}
+</script>
+<script src="{% static 'pages/vectorize.js' %}?v=4"></script>
+{% endblock %}

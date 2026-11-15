@@ -9,6 +9,7 @@ virtualenv so yt-dlp and the bundled ffmpeg are available:
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -42,6 +43,9 @@ def main() -> int:
     command = [
         ytdlp_bin(),
         "--ignore-errors",
+        "--impersonate", "chrome",
+        "--cookies-from-browser", "firefox",
+        *(["--js-runtimes", f"node:{shutil.which('node')}"] if shutil.which("node") else []),
         "--no-abort-on-error",
         "--no-overwrites",
         "--yes-playlist",

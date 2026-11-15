@@ -1,0 +1,5 @@
+<nav class="pager" aria-label="Playlist pages">
+  <button type="button" class="pager-button{% if not has_previous %} is-disabled{% endif %}" data-page-step="-1"{% if not has_previous %} disabled{% endif %}>Previous</button>
+  <div class="pager-pages"></div>
+  <button type="button" class="pager-button{% if not has_next %} is-disabled{% endif %}" data-page-step="1"{% if not has_next %} disabled{% endif %}>Next</button>
+</nav>
